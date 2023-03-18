@@ -1,18 +1,15 @@
 from datetime import datetime, timedelta
-from typing import List, Optional
-
-from pydantic.types import NonNegativeFloat, PositiveInt
-
-from science_gerdau_digital_twin.io.io_utils import CamelModel
+from typing import List
+from pydantic import BaseModel, NonNegativeFloat
 
 
-class PigIronConstants(CamelModel):
+class PigIronConstants(BaseModel):
     torpedo_car_volume = 260
     steel_per_run = 224
     converter_efficiency = 0.985 * 0.902
 
 
-class PigIronEvent(CamelModel):
+class PigIronEvent(BaseModel):
     time: datetime
 
 

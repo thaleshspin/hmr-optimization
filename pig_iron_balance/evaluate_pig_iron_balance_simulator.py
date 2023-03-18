@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 
-from science_gerdau_digital_twin.utils.utils_debug.pig_iron_balance_simulator.pig_iron_balance_simulator import \
-    PigIronBalanceState, Converter, PigIronBalance, PigIronTippingEvent
+from pig_iron_balance.pig_iron_balance_simulator import PigIronBalanceState, Converter, PigIronBalance
 
 if __name__ == '__main__':
     initial_conditions = PigIronBalanceState(time=datetime(2022, 1, 1), value=1600)
