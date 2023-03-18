@@ -13,8 +13,9 @@ if __name__ == '__main__':
                                       converters=converters,
                                       pig_iron_hourly_production=550,
                                       max_restrictive=2000)
+    pig_iron_balance.optimize_hmr()
     balance = pig_iron_balance.generate_pig_iron_balance()
-    virtual_plateaus = pig_iron_balance.virtual_plateaus
+
 
     # PLOT
 

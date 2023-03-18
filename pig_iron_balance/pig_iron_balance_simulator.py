@@ -30,10 +30,13 @@ class ConverterInPlateau(Converter):
 
     @property
     def available_hmr_delta(self) -> NonNegativeFloat:
-        return min(
-            (self.post_converter_state - self.pig_iron_restrictive_min) * self.pig_iron_to_hmr_constant,
-            self.hmr_max
-        ) - self.hmr
+        return round(
+            min(
+                (self.post_converter_state - self.pig_iron_restrictive_min) * self.pig_iron_to_hmr_constant,
+                self.hmr_max
+            ) - self.hmr,
+            3
+        )
 
     @property
     def is_available_to_increase_hmr(self) -> bool:
@@ -49,9 +52,13 @@ class PigIronBalanceState(PigIronEvent):
 
 
 class VirtualPlateau(PigIronEvent):
-    available_converters: List[Converter]
+    available_converters: List[ConverterInPlateau]
     plateau_value: PositiveFloat
     hmr_target: PositiveFloat
+
+    @property
+    def can_be_optimized(self) -> bool:
+        return len(self.available_converters) > 0 and sum(converter.available_hmr_delta for converter in self.available_converters) > 0
 
 
 class PigIronBalance:
@@ -202,7 +209,7 @@ class PigIronBalance:
         next_state = previous_state.value + self.pig_iron_hourly_production * delta_t_hours
 
         if self.allow_auto_spill_events:
-            while next_state > self.max_restrictive:
+            while round(next_state, 7) > self.max_restrictive:
                 next_state = self.generate_spill_event(previous_state)
                 delta_t_hours = (event.time - self.spill_events[-1].time).total_seconds() / 3600
                 previous_state = self.pig_iron_balance[-1]
@@ -284,6 +291,8 @@ class PigIronBalance:
         Returns:
 
         """
+        self.pig_iron_balance = []
+        self.spill_events = []
         # Add initial condition
         self.pig_iron_balance.append(PigIronBalanceState(time=self.initial_conditions.time,
                                                          value=self.initial_conditions.value))
@@ -294,4 +303,58 @@ class PigIronBalance:
         self.finish_balance()
 
         self.pig_iron_balance_map = {state.time: state.value for state in self.pig_iron_balance}
+
+        states = {state.time: state.value for state in self.pig_iron_balance}
+        max_restrictive = {state.time: self.max_restrictive for state in self.pig_iron_balance}
+        spill_ev = {spill.time: self.pig_iron_constants.torpedo_car_volume
+                    for spill in self.spill_events}
+        import matplotlib.pyplot as plt
+
+        import seaborn as sns
+
+        plt.figure()
+        sns.set_theme(style="darkgrid")
+        plt.rcParams["figure.figsize"] = (10, 6)
+        plt.ylim([0, max(states.values()) + 100])
+        x_axis = [(t - self.initial_conditions.time).total_seconds() / 60 for t in max_restrictive]
+
+        plt.plot(x_axis, max_restrictive.values())
+        plt.plot(x_axis, states.values())
+        spill_axis = [(t - self.initial_conditions.time).total_seconds() / 60 for t in spill_ev]
+        print(spill_axis)
+        plt.bar(spill_axis, spill_ev.values(), width=40)
+        plt.title('Caso de Teste 8 - Tela Cenário')
+        plt.savefig('my_plot.png')
+        plt.show()
+
         return self.pig_iron_balance
+
+    def optimize_hmr(self):
+        self.generate_pig_iron_balance()
+        while self.virtual_plateaus_to_be_optimized:
+            virtual_plateau = self.virtual_plateaus_to_be_optimized[0]
+
+            for converter in reversed(virtual_plateau.available_converters):
+
+                # Converter can decrease hmr_target
+                if virtual_plateau.hmr_target > converter.hmr + converter.available_hmr_delta:
+                    self.converters[converter.index].hmr += converter.available_hmr_delta
+                    virtual_plateau.hmr_target -= converter.available_hmr_delta
+
+                else:
+                    self.converters[converter.index].hmr += virtual_plateau.hmr_target
+                    virtual_plateau.hmr_target = 0
+                    break
+
+            self.generate_pig_iron_balance()
+            # break
+
+    @property
+    def virtual_plateaus_to_be_optimized(self):
+        return sorted(
+            [
+                virtual_plateau for virtual_plateau in self.virtual_plateaus
+                if virtual_plateau.can_be_optimized
+            ],
+            key=lambda plateau: plateau.time
+        )
