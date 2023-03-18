@@ -130,7 +130,8 @@ class PigIronBalance:
         """
         converters_in_time_range = [
             (converter_index, converter) for converter_index, converter in enumerate(self.converters) if
-            previous_event_time < converter.time < spill_event.time
+            previous_event_time < converter.time < spill_event.time and
+            self.pig_iron_balance_map[converter.time + timedelta(seconds=1)] > self.min_restrictive
         ]
         for converter_index, converter_in_range in converters_in_time_range:
             plateau_converter = ConverterInPlateau(
