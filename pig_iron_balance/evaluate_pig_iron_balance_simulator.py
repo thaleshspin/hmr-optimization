@@ -4,22 +4,17 @@ import matplotlib.pyplot as plt
 from pig_iron_balance.pig_iron_balance_simulator import PigIronBalanceState, Converter, PigIronBalance
 
 if __name__ == '__main__':
+
     initial_conditions = PigIronBalanceState(time=datetime(2022, 1, 1), value=1600)
 
-    converters = [Converter(time=datetime(2022, 1, 1) + timedelta(minutes=i), hmr=0.835) for i in range(70, 300, 28)]
-    distance_in_t_between_spill_events = 35
-    # spill_events = [PigIronTippingEvent(time=initial_conditions.time + timedelta(minutes=51 + 90))]
-    spill_events = []
+    converters = [Converter(time=datetime(2022, 1, 1) + timedelta(minutes=i), hmr=0.86) for i in range(70, 300, 28)]
 
     pig_iron_balance = PigIronBalance(initial_conditions=initial_conditions,
                                       converters=converters,
-                                      spill_events=spill_events,
-                                      pig_iron_hourly_production=470,
-                                      max_restrictive=2000,
-                                      allow_auto_spill_events=False)
-    pig_iron_balance.generate_pig_iron_balance()
-
-    balance = pig_iron_balance.pig_iron_balance
+                                      pig_iron_hourly_production=550,
+                                      max_restrictive=2000)
+    balance = pig_iron_balance.generate_pig_iron_balance()
+    virtual_plateaus = pig_iron_balance.virtual_plateaus
 
     # PLOT
 
