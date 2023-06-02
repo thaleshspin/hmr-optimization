@@ -1,4 +1,7 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import List, Optional
+from pydantic import BaseModel, validator
 from typing import List, Dict
 from pydantic import BaseModel, NonNegativeFloat, PositiveFloat, NonNegativeInt
 
@@ -10,11 +13,24 @@ class PigIronConstants(BaseModel):
 
 
 class PigIronEvent(BaseModel):
+    time: Optional[datetime]
+
+    @validator('time')
+    def parse_time(cls, value):
+        if type(value) == str:
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return value
+class PigIronEvent(BaseModel):
     time: datetime
 
 
 class Converter(PigIronEvent):
-    hmr: NonNegativeFloat
+    hmr: float
+    cv: str
+
+    @property
+    def end(self):
+        return self.time + timedelta(minutes=60)
 
 
 class ConverterInPlateau(Converter):
@@ -50,6 +66,10 @@ class PigIronTippingEvent(PigIronEvent):
 class PigIronBalanceState(PigIronEvent):
     value: float
 
+    def __repr__(self):
+        time_str = self.time.strftime('%Y-%m-%d %H:%M:%S')
+        return f"PigIronEvent(time='{time_str}', value={self.value})"
+
 
 class VirtualPlateau(PigIronEvent):
     available_converters: List[ConverterInPlateau]
@@ -67,13 +87,16 @@ class PigIronBalance:
     """
 
     def __init__(self, initial_conditions: PigIronBalanceState,
-                 pig_iron_hourly_production: NonNegativeFloat,
+                 pig_iron_hourly_production: float,
                  converters: List[Converter],
+                 spill_events: List[PigIronTippingEvent],
+                 max_restrictive: float,
+                 allow_auto_spill_events: bool):
                  max_restrictive: NonNegativeFloat,
                  spill_events: List[PigIronTippingEvent] = [],
                  allow_auto_spill_events: bool = True):
         self.initial_conditions: PigIronBalanceState = initial_conditions
-        self.pig_iron_hourly_production: NonNegativeFloat = pig_iron_hourly_production
+        self.pig_iron_hourly_production: float = pig_iron_hourly_production
         self.converters: List[Converter] = converters
         self.spill_events: List[PigIronTippingEvent] = spill_events
         self.max_restrictive = max_restrictive
@@ -85,6 +108,7 @@ class PigIronBalance:
         self.pig_iron_balance: List[PigIronBalanceState] = []
         self.pig_iron_balance_map: Dict = {}
         self.pig_iron_to_hmr_constant = self.pig_iron_constants.converter_efficiency / self.pig_iron_constants.steel_per_run
+
 
     @property
     def sorted_events(self):
@@ -302,31 +326,6 @@ class PigIronBalance:
         # Add end of simulation
         self.finish_balance()
 
-        self.pig_iron_balance_map = {state.time: state.value for state in self.pig_iron_balance}
-
-        states = {state.time: state.value for state in self.pig_iron_balance}
-        max_restrictive = {state.time: self.max_restrictive for state in self.pig_iron_balance}
-        spill_ev = {spill.time: self.pig_iron_constants.torpedo_car_volume
-                    for spill in self.spill_events}
-        import matplotlib.pyplot as plt
-
-        import seaborn as sns
-
-        plt.figure()
-        sns.set_theme(style="darkgrid")
-        plt.rcParams["figure.figsize"] = (10, 6)
-        plt.ylim([0, max(states.values()) + 100])
-        x_axis = [(t - self.initial_conditions.time).total_seconds() / 60 for t in max_restrictive]
-
-        plt.plot(x_axis, max_restrictive.values())
-        plt.plot(x_axis, states.values())
-        spill_axis = [(t - self.initial_conditions.time).total_seconds() / 60 for t in spill_ev]
-        print(spill_axis)
-        plt.bar(spill_axis, spill_ev.values(), width=40)
-        plt.title('Caso de Teste 8 - Tela Cenário')
-        plt.savefig('my_plot.png')
-        plt.show()
-
         return self.pig_iron_balance
 
     def optimize_hmr(self):
@@ -358,3 +357,4 @@ class PigIronBalance:
             ],
             key=lambda plateau: plateau.time
         )
+
