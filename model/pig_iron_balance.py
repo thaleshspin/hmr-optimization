@@ -1,23 +1,32 @@
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional
-
-from pydantic.types import NonNegativeFloat, PositiveInt
-
-from science_gerdau_digital_twin.io.io_utils import CamelModel
+from pydantic import BaseModel, validator
 
 
-class PigIronConstants(CamelModel):
+class PigIronConstants(BaseModel):
     torpedo_car_volume = 260
     steel_per_run = 224
     converter_efficiency = 0.985 * 0.902
 
 
-class PigIronEvent(CamelModel):
-    time: datetime
+class PigIronEvent(BaseModel):
+    time: Optional[datetime]
+
+    @validator('time')
+    def parse_time(cls, value):
+        if type(value) == str:
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        return value
 
 
 class Converter(PigIronEvent):
-    hmr: NonNegativeFloat
+    hmr: float
+    cv: str
+
+    @property
+    def end(self):
+        return self.time + timedelta(minutes=60)
 
 
 class PigIronTippingEvent(PigIronEvent):
@@ -27,6 +36,10 @@ class PigIronTippingEvent(PigIronEvent):
 class PigIronBalanceState(PigIronEvent):
     value: float
 
+    def __repr__(self):
+        time_str = self.time.strftime('%Y-%m-%d %H:%M:%S')
+        return f"PigIronEvent(time='{time_str}', value={self.value})"
+
 
 class PigIronBalance:
     """
@@ -34,19 +47,20 @@ class PigIronBalance:
     """
 
     def __init__(self, initial_conditions: PigIronBalanceState,
-                 pig_iron_hourly_production: NonNegativeFloat,
+                 pig_iron_hourly_production: float,
                  converters: List[Converter],
                  spill_events: List[PigIronTippingEvent],
-                 max_restrictive: NonNegativeFloat,
+                 max_restrictive: float,
                  allow_auto_spill_events: bool):
         self.initial_conditions: PigIronBalanceState = initial_conditions
-        self.pig_iron_hourly_production: NonNegativeFloat = pig_iron_hourly_production
+        self.pig_iron_hourly_production: float = pig_iron_hourly_production
         self.converters: List[Converter] = converters
         self.spill_events: List[PigIronTippingEvent] = spill_events
         self.max_restrictive = max_restrictive
         self.allow_auto_spill_events: bool = allow_auto_spill_events
         self.pig_iron_constants: PigIronConstants = PigIronConstants()
         self.pig_iron_balance: List[PigIronBalanceState] = []
+
 
     @property
     def sorted_events(self):
@@ -174,3 +188,4 @@ class PigIronBalance:
 
         # Add end of simulation
         self.finish_balance()
+
