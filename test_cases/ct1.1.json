@@ -1,0 +1,39 @@
+{
+    "initial_conditions": {
+        "time": "2023-06-02T00:00:00",
+        "value": 1000
+    },
+    "converter_1": [
+        {
+            "time": "2023-06-02T00:15:00",
+            "hmr": 0.8,
+            "cv": "cv_1"
+        },
+        {
+            "time": "2023-06-02T02:40:52",
+            "hmr": 0.8,
+            "cv": "cv_1"
+        },
+        {
+            "time": "2023-06-02T04:55:51",
+            "hmr": 0.8,
+            "cv": "cv_1"
+        }
+    ],
+    "converter_2": [
+        {
+            "time": "2023-06-02T00:36:00",
+            "hmr": 0.8,
+            "cv": "cv_2"
+        },
+        {
+            "time": "2023-06-02T02:50:24",
+            "hmr": 0.8,
+            "cv": "cv_2"
+        }
+    ],
+    "pig_iron_hourly_production": 300,
+    "max_restrictive": 1600,
+    "allow_auto_spill_events": true,
+    "converter_duration": 60
+}

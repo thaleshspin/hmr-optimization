@@ -7,7 +7,7 @@ from pydantic import BaseModel, NonNegativeFloat, PositiveFloat, NonNegativeInt
 
 
 class PigIronConstants(BaseModel):
-    torpedo_car_volume = 260
+    torpedo_car_volume = 250
     steel_per_run = 224
     converter_efficiency = 0.985 * 0.902
 
@@ -20,8 +20,6 @@ class PigIronEvent(BaseModel):
         if type(value) == str:
             return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
         return value
-class PigIronEvent(BaseModel):
-    time: datetime
 
 
 class Converter(PigIronEvent):
@@ -78,7 +76,8 @@ class VirtualPlateau(PigIronEvent):
 
     @property
     def can_be_optimized(self) -> bool:
-        return len(self.available_converters) > 0 and sum(converter.available_hmr_delta for converter in self.available_converters) > 0
+        return len(self.available_converters) > 0 and sum(
+            converter.available_hmr_delta for converter in self.available_converters) > 0
 
 
 class PigIronBalance:
@@ -92,23 +91,19 @@ class PigIronBalance:
                  spill_events: List[PigIronTippingEvent],
                  max_restrictive: float,
                  allow_auto_spill_events: bool):
-                 max_restrictive: NonNegativeFloat,
-                 spill_events: List[PigIronTippingEvent] = [],
-                 allow_auto_spill_events: bool = True):
         self.initial_conditions: PigIronBalanceState = initial_conditions
         self.pig_iron_hourly_production: float = pig_iron_hourly_production
         self.converters: List[Converter] = converters
         self.spill_events: List[PigIronTippingEvent] = spill_events
         self.max_restrictive = max_restrictive
-        self.min_restrictive = 100
+        self.min_restrictive = 0
         self.max_hmr = 1
-        self.min_hmr = 0.85
+        self.min_hmr = 0.8
         self.allow_auto_spill_events: bool = allow_auto_spill_events
         self.pig_iron_constants: PigIronConstants = PigIronConstants()
         self.pig_iron_balance: List[PigIronBalanceState] = []
         self.pig_iron_balance_map: Dict = {}
         self.pig_iron_to_hmr_constant = self.pig_iron_constants.converter_efficiency / self.pig_iron_constants.steel_per_run
-
 
     @property
     def sorted_events(self):
@@ -273,7 +268,7 @@ class PigIronBalance:
         """
         if type(event) == PigIronTippingEvent:
             return self.pig_iron_constants.torpedo_car_volume
-        return event.hmr * self.pig_iron_constants.steel_per_run / self.pig_iron_constants.converter_efficiency
+        return event.hmr * 250#self.pig_iron_constants.steel_per_run / self.pig_iron_constants.converter_efficiency
 
     def add_new_event_to_pig_iron_balance(self, event):
         """
@@ -292,7 +287,7 @@ class PigIronBalance:
         self.pig_iron_balance.append(next_state)
 
         post_event_state = PigIronBalanceState(time=event.time + timedelta(seconds=1),
-                                               value=next_state.value - self.get_pig_iron_consumption(event))
+                                               value=next_state.value - self.get_pig_iron_consumption(event) + self.pig_iron_hourly_production/3600)
         self.pig_iron_balance.append(post_event_state)
 
     def finish_balance(self):
@@ -304,7 +299,7 @@ class PigIronBalance:
 
         previous_state = self.pig_iron_balance[-1]
 
-        end_of_simulation = PigIronEvent(time=self.sorted_events[-1].time + timedelta(minutes=30))
+        end_of_simulation = PigIronEvent(time=self.sorted_events[-1].time + timedelta(minutes=60))
         last_state = PigIronBalanceState(time=end_of_simulation.time,
                                          value=self.get_next_value(previous_state, end_of_simulation))
         self.pig_iron_balance.append(last_state)
@@ -357,4 +352,3 @@ class PigIronBalance:
             ],
             key=lambda plateau: plateau.time
         )
-
