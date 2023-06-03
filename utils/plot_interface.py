@@ -1,9 +1,13 @@
 import os
 import plotly.colors as pc
+from sympy.parsing.latex import parse_latex
+
 from model.pig_iron_balance import Converter
+from sympy import symbols, Eq, parse_expr
+from sympy.printing import latex
+import unicodedata
 
 import colorlover as cl
-
 
 colorscale = cl.scales['9']['seq']['Blues']
 
@@ -71,7 +75,7 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
     for i, converter in enumerate(sorted(converters, key=lambda cv: cv.time)):
         data_gantt.append(
             {"Converter": converter_labels[int(converter.cv == 'cv_2')], "Start": converter.time,
-             "Finish": converter.end, "HMR": converter.hmr})
+             "Finish": converter.end, "HMR (ρ)": converter.hmr})
 
     # Convert data to DataFrame
     df_gantt = pd.DataFrame(data_gantt)
@@ -83,7 +87,7 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
     # Generate Gantt Chart
     fig_gantt = px.timeline(df_gantt, x_start="Start", x_end="Finish", y="Converter",
                             labels={"Converter": "Converter"}, title="Gantt",
-                            color="HMR",  # Definir cores com base no valor do HMR
+                            color="HMR (ρ)",  # Definir cores com base no valor do HMR
                             color_continuous_scale=colorscale,  # Definir a escala de cores discreta
                             )
     # Configure Gantt Chart layout
@@ -100,11 +104,15 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
             gridwidth=1,  # Define a largura das linhas de grade
         )
     )
+
     for i, converter in enumerate(sorted(converters, key=lambda cv: cv.time)):
+        equation = "t<span style='font-size: 8px;'>{:01d}</span>: {:02d}min  ρ<span style='font-size: 8px;'>{:01d}</span>: {:.1f}".format(
+            i + 1, int((converter.time-initial_time).total_seconds()/60), i + 1, converter.hmr
+        )
         fig_gantt.add_annotation(
             x=converter.time + (converter.end - converter.time) / 2,
             y=converter_labels[int(converter.cv == 'cv_2')],
-            text=f'{converter.hmr}',
+            text=equation,
             showarrow=False,
             font=dict(size=14, color="white" if converter.hmr < 0.96 else 'black'),
         )
@@ -114,7 +122,6 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
             "coloraxis_cmax": 1.0,
         }
     )
-
 
     fig_gantt.update_coloraxes(
         colorbar={
