@@ -11,11 +11,11 @@ def generate_test_case(ct_name):
         return None
     # Define the start and end time for the day
     start_time = datetime(2023, 6, 2, 0, 0, 0)
-    end_time = datetime(2023, 6, 2, 4, 59, 59)
+    end_time = datetime(2023, 6, 4, 4, 59, 59)
 
     # Define the time interval range between converters (1 hour to 1 hour 15 minutes)
     min_interval = timedelta(hours=1)
-    max_interval = timedelta(hours=1, minutes=90)
+    max_interval = timedelta(hours=1, minutes=500)
 
     # Generate random converter start times
     converter_start_times = []
@@ -68,7 +68,8 @@ def generate_test_case(ct_name):
         "pig_iron_hourly_production": 300,
         "max_restrictive": 2000,
         "allow_auto_spill_events": True,
-        "converter_duration": 60
+        "converter_duration": 60,
+        "optimize_hmr": False
     }
     # Save the data to a JSON file
     filename = f'test_cases/{ct_name}.json'

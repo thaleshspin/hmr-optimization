@@ -1,3 +1,4 @@
+import locale
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -99,6 +100,8 @@ class PigIronBalance:
         self.min_restrictive = 0
         self.max_hmr = 1
         self.min_hmr = 0.8
+        self.k = 250
+        self.profit = 0
         self.allow_auto_spill_events: bool = allow_auto_spill_events
         self.pig_iron_constants: PigIronConstants = PigIronConstants()
         self.pig_iron_balance: List[PigIronBalanceState] = []
@@ -253,7 +256,7 @@ class PigIronBalance:
 
         self.spill_events.append(PigIronTippingEvent(time=violation_time))
         post_spill_event_state = PigIronBalanceState(time=violation_time + timedelta(seconds=1),
-                                                     value=self.max_restrictive - self.pig_iron_constants.torpedo_car_volume)
+                                                     value=self.max_restrictive - self.pig_iron_constants.torpedo_car_volume + self.pig_iron_hourly_production / 3600)
         self.pig_iron_balance.append(post_spill_event_state)
         return post_spill_event_state.value
 
@@ -268,7 +271,7 @@ class PigIronBalance:
         """
         if type(event) == PigIronTippingEvent:
             return self.pig_iron_constants.torpedo_car_volume
-        return event.hmr * 250#self.pig_iron_constants.steel_per_run / self.pig_iron_constants.converter_efficiency
+        return event.hmr * self.k
 
     def add_new_event_to_pig_iron_balance(self, event):
         """
@@ -287,7 +290,8 @@ class PigIronBalance:
         self.pig_iron_balance.append(next_state)
 
         post_event_state = PigIronBalanceState(time=event.time + timedelta(seconds=1),
-                                               value=next_state.value - self.get_pig_iron_consumption(event) + self.pig_iron_hourly_production/3600)
+                                               value=next_state.value - self.get_pig_iron_consumption(
+                                                   event) + self.pig_iron_hourly_production / 3600)
         self.pig_iron_balance.append(post_event_state)
 
     def finish_balance(self):
@@ -323,8 +327,26 @@ class PigIronBalance:
 
         return self.pig_iron_balance
 
+    @property
+    def total_cost(self) -> str:
+        pig_iron_cost = (
+                sum(
+                    [cv.hmr * self.k for cv in self.converters]
+                ) * 3400
+                +
+                len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * 3400
+        )
+        scrap_cost = sum(
+            [
+                max(0, self.k * (1 - cv.hmr) - 3.5) for cv in self.converters
+            ]
+        ) * 360
+        total_cost = round(pig_iron_cost + scrap_cost)
+        return total_cost
+
     def optimize_hmr(self):
         self.generate_pig_iron_balance()
+        initial_cost = self.total_cost
         while self.virtual_plateaus_to_be_optimized:
             virtual_plateau = self.virtual_plateaus_to_be_optimized[0]
 
@@ -342,6 +364,8 @@ class PigIronBalance:
 
             self.generate_pig_iron_balance()
             # break
+        self.profit = initial_cost - self.total_cost
+        print(f'Total profit: {self.profit}')
 
     @property
     def virtual_plateaus_to_be_optimized(self):
