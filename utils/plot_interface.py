@@ -98,14 +98,23 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
             showgrid=True,  # Exibe as linhas de grade verticais
             gridcolor='white',  # Define a cor das linhas de grade
             gridwidth=1,  # Define a largura das linhas de grade
-        ),
+        )
     )
+    for i, converter in enumerate(sorted(converters, key=lambda cv: cv.time)):
+        fig_gantt.add_annotation(
+            x=converter.time + (converter.end - converter.time) / 2,
+            y=converter_labels[int(converter.cv == 'cv_2')],
+            text=f'{converter.hmr}',
+            showarrow=False,
+            font=dict(size=14, color="white" if converter.hmr < 0.96 else 'black'),
+        )
     fig_gantt.update_layout(
         {
             "coloraxis_cmin": 0.8,
             "coloraxis_cmax": 1.0,
         }
     )
+
 
     fig_gantt.update_coloraxes(
         colorbar={
