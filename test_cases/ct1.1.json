@@ -10,12 +10,12 @@
             "cv": "cv_1"
         },
         {
-            "time": "2023-06-02T02:40:52",
+            "time": "2023-06-02T02:40:00",
             "hmr": 0.8,
             "cv": "cv_1"
         },
         {
-            "time": "2023-06-02T04:55:51",
+            "time": "2023-06-02T04:55:00",
             "hmr": 0.8,
             "cv": "cv_1"
         }
@@ -27,13 +27,18 @@
             "cv": "cv_2"
         },
         {
-            "time": "2023-06-02T02:50:24",
+            "time": "2023-06-02T02:50:00",
             "hmr": 0.8,
+            "cv": "cv_2"
+        },
+        {
+            "time": "2023-06-02T04:30:00",
+            "hmr": 0.80,
             "cv": "cv_2"
         }
     ],
     "pig_iron_hourly_production": 300,
-    "max_restrictive": 1600,
+    "max_restrictive": 1350,
     "allow_auto_spill_events": true,
     "converter_duration": 60
 }

@@ -30,7 +30,7 @@ def generate_test_case(ct_name):
     converters_1 = []
     for start_time in converter_start_times:
         converter = {
-            'time': start_time.isoformat(),
+            'time': start_time.replace(second=0).isoformat(),
             'hmr': 0.8,
             'cv': 'cv_1'
             # Add other properties of the converter here
@@ -49,7 +49,7 @@ def generate_test_case(ct_name):
     converters_2 = []
     for start_time in converter_start_times_2:
         converter = {
-            'time': start_time.isoformat(),
+            'time': start_time.replace(second=0).isoformat(),
             'hmr': 0.8,
             'cv': 'cv_2'
             # Add other properties of the converter here

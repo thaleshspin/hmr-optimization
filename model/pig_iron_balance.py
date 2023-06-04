@@ -330,17 +330,17 @@ class PigIronBalance:
     @property
     def total_cost(self) -> str:
         pig_iron_cost = (
-                sum(
-                    [cv.hmr * self.k for cv in self.converters]
+                (
+                    self.k * sum([cv.hmr for cv in self.converters])
                 ) * 3400
                 +
                 len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * 3400
         )
-        scrap_cost = sum(
+        scrap_cost = round(sum(
             [
                 max(0, self.k * (1 - cv.hmr) - 3.5) for cv in self.converters
             ]
-        ) * 360
+        )) * 360
         total_cost = round(pig_iron_cost + scrap_cost)
         return total_cost
 
