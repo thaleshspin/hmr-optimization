@@ -12,20 +12,22 @@ import locale
 # Set the locale to Brazilian Portuguese
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 if __name__ == '__main__':
-    #ct_name = 'ct1'
+    ct_name = 'ct2'
     #generate_test_case(ct_name)
-    # with open(f'test_cases/{ct_name}.json') as json_file:
-    #     input_data = json.load(json_file)
-    for filename in os.listdir('test_cases/'):
-        file_path = os.path.join('test_cases/', filename)
-        if os.path.isfile(file_path):
-            ct_name = filename.split('/')[0].split('.json')[0]
-            with open(file_path) as json_file:
-                input_data = json.load(json_file)
+    with open(f'test_cases/{ct_name}.json') as json_file:
+        input_data = json.load(json_file)
+    # for filename in os.listdir('test_cases/')[:1]:
+    #     file_path = os.path.join('test_cases/', filename)
+    #     if os.path.isfile(file_path):
+    #         ct_name = filename.split('/')[0].split('.json')[0]
+    #         with open(file_path) as json_file:
+    #             input_data = json.load(json_file)
 
-            pig_iron_balance = pig_iron_balance_model(input_data)
-            _ = pig_iron_balance.generate_pig_iron_balance()
+    pig_iron_balance = pig_iron_balance_model(input_data)
+    pig_iron_balance.optimize_hmr()
 
-            plot_interface(ct_name, pig_iron_balance, debug=True)
+   # _ = pig_iron_balance.generate_pig_iron_balance()
+
+    plot_interface(ct_name, pig_iron_balance, debug=True)
 
 

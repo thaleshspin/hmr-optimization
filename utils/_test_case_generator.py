@@ -3,6 +3,8 @@ import os
 import random
 from datetime import datetime, timedelta
 
+from model.pig_iron_balance import Maintenance
+
 
 def generate_test_case(ct_name):
     filename = f'test_cases/{ct_name}.json'
@@ -11,7 +13,7 @@ def generate_test_case(ct_name):
     #     return None
     # Define the start and end time for the day
     start_time = datetime(2023, 6, 2, 0, 0, 0)
-    end_time = datetime(2023, 6, 2, 5, 59, 59)
+    end_time = datetime(2023, 6, 3, 5, 59, 59)
 
     # Define the time interval range between converters (1 hour to 1 hour 15 minutes)
     min_interval = timedelta(hours=1)
@@ -56,6 +58,10 @@ def generate_test_case(ct_name):
         }
         converters_2.append(converter)
 
+    #maintenances_cv1 = [{'time': start_time.replace(second=0).isoformat(), 'duration':8}]
+    maintenances_cv1 = []
+    maintenances_cv2 = []
+
     # Create the JSON object
     start_time = datetime(2023, 6, 2, 0, 0, 0)
     test_case = {
@@ -69,7 +75,9 @@ def generate_test_case(ct_name):
         "max_restrictive": 2000,
         "allow_auto_spill_events": True,
         "converter_duration": 60,
-        "optimize_hmr": False
+        "optimize_hmr": False,
+        "maintenances_cv1": maintenances_cv1,
+        "maintenances_cv2": maintenances_cv2
     }
     # Save the data to a JSON file
     filename = f'test_cases/{ct_name}.json'

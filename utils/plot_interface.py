@@ -24,7 +24,7 @@ import plotly.graph_objects as go
 
 
 def plot_interface(ct_name, pig_iron_balance, debug=True):
-    gantt = generate_gantt_chart(pig_iron_balance.initial_conditions.time, pig_iron_balance.converters)
+    gantt = generate_gantt_chart(pig_iron_balance.initial_conditions.time, pig_iron_balance.converters, pig_iron_balance.maintenances)
     balance = generate_pig_iron_balance_chart(pig_iron_balance, [spill.time for spill in pig_iron_balance.spill_events])
 
     pio.write_image(gantt, f"test_cases/images/gantt_{ct_name}.png", format='png', width=800, height=200, scale=3)
@@ -69,7 +69,7 @@ def save_plot(ct_name, debug):
     os.remove(f"test_cases/images/gantt_{ct_name}.png")
 
 
-def generate_gantt_chart(initial_time, converters: list[Converter]):
+def generate_gantt_chart(initial_time, converters: list[Converter], maintenances):
     # Gantt Chart Data
     data_gantt = []
     converter_labels = ["CV 1", "CV 2"]
@@ -77,6 +77,14 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
         data_gantt.append(
             {"Converter": converter_labels[int(converter.cv == 'cv_2')], "Start": converter.time,
              "Finish": converter.end, "HMR (ρ)": converter.hmr})
+    for cv_name, maintenances in maintenances.items():
+        for mnt in maintenances:
+            data_gantt.append({
+                "Converter": converter_labels[int(cv_name == 'CV 2')],
+                "Start": mnt.time,
+                "Finish": mnt.time + timedelta(hours=mnt.duration),
+                "HMR (ρ)": "Maintenance"
+            })
 
     # Convert data to DataFrame
     df_gantt = pd.DataFrame(data_gantt)
@@ -117,6 +125,7 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
             showarrow=False,
             font=dict(size=12, color="white" if converter.hmr < 0.96 else 'black'),
         )
+
     fig_gantt.update_layout(
         {
             "coloraxis_cmin": 0.8,
