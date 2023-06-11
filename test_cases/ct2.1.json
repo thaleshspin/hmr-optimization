@@ -6,7 +6,7 @@
     "converter_1": [
         {
             "time": "2023-06-02T00:15:00",
-            "hmr": 0.8,
+            "hmr": 1,
             "cv": "cv_1"
         },
         {
@@ -28,7 +28,7 @@
     "converter_2": [
         {
             "time": "2023-06-02T00:36:00",
-            "hmr": 0.8,
+            "hmr": 1,
             "cv": "cv_2"
         },
         {
@@ -48,7 +48,7 @@
         }
     ],
     "pig_iron_hourly_production": 375,
-    "max_restrictive": 2000,
+    "max_restrictive": 1500,
     "allow_auto_spill_events": true,
     "converter_duration": 60
 }

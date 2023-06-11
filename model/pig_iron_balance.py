@@ -2,6 +2,8 @@ import locale
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import List, Optional
+
+import numpy as np
 from pydantic import BaseModel, validator
 from typing import List, Dict
 from pydantic import BaseModel, NonNegativeFloat, PositiveFloat, NonNegativeInt
@@ -92,6 +94,7 @@ class PigIronBalance:
                  spill_events: List[PigIronTippingEvent],
                  max_restrictive: float,
                  allow_auto_spill_events: bool):
+        self.total_cost = None
         self.initial_conditions: PigIronBalanceState = initial_conditions
         self.pig_iron_hourly_production: float = pig_iron_hourly_production
         self.converters: List[Converter] = converters
@@ -107,6 +110,25 @@ class PigIronBalance:
         self.pig_iron_balance: List[PigIronBalanceState] = []
         self.pig_iron_balance_map: Dict = {}
         self.pig_iron_to_hmr_constant = self.pig_iron_constants.converter_efficiency / self.pig_iron_constants.steel_per_run
+
+    def convert_to_pu(self, value):
+        return value / self.pig_iron_constants.torpedo_car_volume
+
+    def convert_pig_iron_balance_to_pu(self):
+        self.k = self.convert_to_pu(self.k)
+        self.pig_iron_hourly_production = self.convert_to_pu(self.pig_iron_hourly_production)
+
+        for state in self.pig_iron_balance:
+            state.value = self.convert_to_pu(state.value)
+
+        # for event in self.spill_events:
+        #     event.value = self.convert_to_pu(event.value)
+
+        self.max_restrictive = self.convert_to_pu(self.max_restrictive)
+        self.min_restrictive = self.convert_to_pu(self.min_restrictive)
+
+        self.initial_conditions.value = self.convert_to_pu(self.initial_conditions.value)
+        self.pig_iron_constants.torpedo_car_volume = self.convert_to_pu(self.pig_iron_constants.torpedo_car_volume)
 
     @property
     def sorted_events(self):
@@ -324,15 +346,29 @@ class PigIronBalance:
 
         # Add end of simulation
         self.finish_balance()
-
+        self.calculate_total_cost()
+        self.convert_pig_iron_balance_to_pu()
         return self.pig_iron_balance
 
-    @property
-    def total_cost(self) -> str:
+    def calculate_total_cost(self) -> str:
+        steel_loss = (
+            (
+                # gusa que virou sucata ao inves de aço
+                len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * (4300 - 360) -
+                # aço produzido extra para prevenir basculamento
+                4300 * self.k * sum(cv.hmr - self.min_hmr for cv in self.converters)
+            )
+            if len(self.spill_events) else
+            (
+                4300 * self.k * sum(cv.hmr - self.min_hmr for cv in self.converters)
+            )
+        )
+        if len(self.spill_events):
+            print('Steel Loss')
         pig_iron_cost = (
                 (
-                    self.k * sum([cv.hmr for cv in self.converters])
-                ) * 3400
+                        self.k * sum([cv.hmr for cv in self.converters])
+                ) * 4300
                 +
                 len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * 3400
         )
@@ -341,8 +377,40 @@ class PigIronBalance:
                 max(0, self.k * (1 - cv.hmr) - 3.5) for cv in self.converters
             ]
         )) * 360
+        n_jobs = len(self.converters)
+        total_steel = n_jobs * self.k * 4300
+        total_pig_iron_min_hmr = n_jobs * self.k * self.min_hmr * 3400
+        total_scrap_min_hmr = n_jobs * self.k * (1 - self.min_hmr) - 3.5
+        spill_steel_loss = len(self.spill_events)*self.pig_iron_constants.torpedo_car_volume * (4300-360)
+        steel_increase = self.k*sum(cv.hmr-self.min_hmr for cv in self.converters) * (4300-3600)
+        scrap_decrease = sum((self.k*(1 - self.min_hmr) - 3.5)-(self.k*(1 - cv.hmr) - 3.5) for cv in self.converters) * 360
+        total_loss = (spill_steel_loss - steel_increase - scrap_decrease)
+
+        liquid_profit = (
+            (#aço total produzido
+                total_steel
+            ) -
+            (#custo gusa
+                total_pig_iron_min_hmr
+            ) -
+            (#custo sucata
+                total_scrap_min_hmr
+            ) -
+            (#prejuízo
+                (#aço perdido por basculamento
+                    spill_steel_loss
+                ) -
+                (#aço produzido a mais
+                    steel_increase
+                ) +
+                (#sucata utilizada a menos = sucata no hmr min - sucata no hmr otimo
+                    scrap_decrease
+                )
+            )
+        )
         total_cost = round(pig_iron_cost + scrap_cost)
-        return total_cost
+        self.total_cost = liquid_profit
+        return self.total_cost
 
     def optimize_hmr(self):
         self.generate_pig_iron_balance()

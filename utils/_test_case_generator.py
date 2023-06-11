@@ -6,20 +6,20 @@ from datetime import datetime, timedelta
 
 def generate_test_case(ct_name):
     filename = f'test_cases/{ct_name}.json'
-    if os.path.exists(filename):
-        print('Skiping test case generation!')
-        return None
+    # if os.path.exists(filename):
+    #     print('Skiping test case generation!')
+    #     return None
     # Define the start and end time for the day
     start_time = datetime(2023, 6, 2, 0, 0, 0)
-    end_time = datetime(2023, 6, 4, 4, 59, 59)
+    end_time = datetime(2023, 6, 2, 5, 59, 59)
 
     # Define the time interval range between converters (1 hour to 1 hour 15 minutes)
     min_interval = timedelta(hours=1)
-    max_interval = timedelta(hours=1, minutes=500)
+    max_interval = timedelta(hours=1, minutes=120)
 
     # Generate random converter start times
     converter_start_times = []
-    current_time = start_time + timedelta(minutes=15)
+    current_time = start_time + timedelta(minutes=random.randint(10,30))
 
     while current_time < end_time:
         converter_start_times.append(current_time)
@@ -38,7 +38,7 @@ def generate_test_case(ct_name):
         converters_1.append(converter)
     start_time = datetime(2023, 6, 2, 0, 0, 0)
     converter_start_times_2 = []
-    current_time = start_time + timedelta(minutes=36)
+    current_time = start_time + timedelta(minutes=random.randint(30,40))
 
     while current_time < end_time:
         converter_start_times_2.append(current_time)
@@ -73,8 +73,8 @@ def generate_test_case(ct_name):
     }
     # Save the data to a JSON file
     filename = f'test_cases/{ct_name}.json'
-    if os.path.exists(filename):
-        raise Exception('Test case already exist')
+    # if os.path.exists(filename):
+    #     raise Exception('Test case already exist')
     with open(filename, 'w') as file:
         json.dump(test_case, file, indent=4)
 

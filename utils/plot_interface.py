@@ -115,7 +115,7 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
             y=converter_labels[int(converter.cv == 'cv_2')],
             text=equation,
             showarrow=False,
-            font=dict(size=13, color="white" if converter.hmr < 0.96 else 'black'),
+            font=dict(size=12, color="white" if converter.hmr < 0.96 else 'black'),
         )
     fig_gantt.update_layout(
         {
@@ -150,7 +150,7 @@ def generate_gantt_chart(initial_time, converters: list[Converter]):
 
 def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighted_datetimes: list[datetime]):
     # Pig Iron Balance Data
-    saldo_de_gusa = [(state.time, round(state.value)) for state in pig_iron_balance.pig_iron_balance]
+    saldo_de_gusa = [(state.time, round(state.value, 2)) for state in pig_iron_balance.pig_iron_balance]
     saldo_de_gusa_map = {state.time: state.value for state in pig_iron_balance.pig_iron_balance}
     # Create DataFrame for Pig Iron Balance data
     df_saldo_gusa = pd.DataFrame({"Tempo": [item[0] for item in saldo_de_gusa],
@@ -160,9 +160,9 @@ def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighte
     fig_saldo_gusa = go.Figure()
     total_cost = locale.currency(pig_iron_balance.total_cost, grouping=True, symbol='R$')
 
-    title_no_profit = f"Saldo de Gusa - Custo total: {total_cost}"
-    title_profit = f"Saldo de Gusa - Custo total: {total_cost} - Lucro : {total_cost}"
-    title = title_no_profit if pig_iron_balance.profit == 0 else title_profit
+    title = f"Saldo de Gusa [pu] - Lucro Líquido: {total_cost}"
+    #title_profit = f"Saldo de Gusa - Custo total: {total_cost} - Lucro : {total_cost}"
+    #title = title_no_profit if pig_iron_balance.profit == 0 else title_profit
     # Add line plot for Pig Iron Balance
     fig_saldo_gusa.add_trace(
         go.Scatter(
@@ -205,7 +205,7 @@ def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighte
     # Configure Pig Iron Balance layout
     fig_saldo_gusa.update_layout(
         xaxis_title="Tempo",
-        yaxis_title="Ferro-Gusa (t)",
+        yaxis_title="Ferro-Gusa [pu]",
         title=title,
         showlegend=False,
         height=400,
@@ -261,77 +261,78 @@ def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighte
 
     # Set the y-axis range for the chart
     fig_saldo_gusa.update_yaxes(
-        range=[0, pig_iron_balance.max_restrictive + 100]
+        range=[0, pig_iron_balance.max_restrictive + pig_iron_balance.pig_iron_constants.torpedo_car_volume]
     )
 
     fig_saldo_gusa.add_annotation(
-        x=1,
+        x=0,
         y=0.2,
         xref="paper",
         yref="paper",
-        text=f"η={pig_iron_balance.pig_iron_constants.torpedo_car_volume} t",
+        text=f"η={int(pig_iron_balance.pig_iron_constants.torpedo_car_volume)} pu",
         showarrow=False,
         font=dict(size=12),
-        align="right",
-        xanchor="right",
+        align="left",
+        xanchor="left",
         yanchor="bottom"
     )
 
     fig_saldo_gusa.add_annotation(
-        x=1,
+        x=0,
         y=0.15,
         xref="paper",
         yref="paper",
-        text=f"k={pig_iron_balance.k} t",
+        text=f"k={int(pig_iron_balance.k)} pu",
         showarrow=False,
         font=dict(size=12),
-        align="right",
-        xanchor="right",
+        align="left",
+        xanchor="left",
         yanchor="bottom"
     )
 
-    equation = "v̅={:01d} t".format(int(pig_iron_balance.max_restrictive))
+    equation = "v̅={:01d} pu".format(int(pig_iron_balance.max_restrictive))
     fig_saldo_gusa.add_annotation(
-        x=1,
+        x=0,
         y=0.1,
         xref="paper",
         yref="paper",
         text=equation,
         showarrow=False,
         font=dict(size=12),
-        align="right",
-        xanchor="right",
+        align="left",
+        xanchor="left",
         yanchor="bottom"
     )
 
-    equation_2 = "v<span style='font-size: 8px;'>{:01d}</span>={:01d} t".format(0,
+    equation_2 = "v<span style='font-size: 8px;'>{:01d}</span>={:01d} pu".format(0,
                                                                                 int(pig_iron_balance.initial_conditions.value))
     fig_saldo_gusa.add_annotation(
-        x=1,
+        x=0,
         y=0.05,
         xref="paper",
         yref="paper",
         text=equation_2,
         showarrow=False,
         font=dict(size=12),
-        align="right",
-        xanchor="right",
+        align="left",
+        xanchor="left",
         yanchor="bottom"
     )
 
     fig_saldo_gusa.add_annotation(
-        x=1,
+        x=0,
         y=0.0,
         xref="paper",
         yref="paper",
-        text=f"\u03A6={pig_iron_balance.pig_iron_hourly_production} t/h",
+        text=f"\u03A6={pig_iron_balance.pig_iron_hourly_production} pu/h",
         showarrow=False,
         font=dict(size=12),
-        align="right",
-        xanchor="right",
+        align="left",
+        xanchor="left",
         yanchor="bottom"
     )
 
     # Display the chart
     # fig_saldo_gusa.show()
     return fig_saldo_gusa
+
