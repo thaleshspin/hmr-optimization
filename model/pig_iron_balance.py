@@ -40,10 +40,10 @@ class Converter(PigIronEvent):
 
 
 class ConverterInPlateau(Converter):
-    index: NonNegativeInt
+    index: int
     hmr_min: NonNegativeFloat
     hmr_max: NonNegativeFloat
-    post_converter_state: NonNegativeFloat
+    post_converter_state: float
     pig_iron_restrictive_min: NonNegativeFloat
     k: NonNegativeFloat
 
@@ -95,6 +95,8 @@ class VirtualPlateau(PigIronEvent):
                 len(self.available_converters) > 0 and
                 sum(converter.max_contribution for converter in self.available_converters) > 0
         )
+    def __repr__(self):
+        return f'{self.time} - {[cv.index for cv in self.available_converters]} - {self.hmr_target}'
 
 
 
@@ -109,12 +111,13 @@ class PigIronBalance:
                  spill_events: List[PigIronTippingEvent],
                  max_restrictive: float,
                  allow_auto_spill_events: bool,
-                 maintenances: list = []):
-        self.total_cost = None
+                 maintenances: list = [],
+                 optimize = True):
+        self.total_cost = 0.0
         self.initial_conditions: PigIronBalanceState = initial_conditions
         self.pig_iron_hourly_production: float = pig_iron_hourly_production
         self.converters: List[Converter] = sorted(converters, key=lambda cv:cv.time)
-
+        self.optimize = optimize
         for i, converter in enumerate(self.converters):
             converter.index = i
 
@@ -124,6 +127,8 @@ class PigIronBalance:
         self.max_hmr = 1
         self.min_hmr = 0.8
         self.k = 250
+        self.initial_spill_events = 0
+        self.liquid_profit_dict = {}
         self.profit = 0
         self.maintenances = maintenances
         self.allow_auto_spill_events: bool = allow_auto_spill_events
@@ -190,13 +195,24 @@ class PigIronBalance:
                 else:
                     next_converter_time = self.sorted_events[next_converter_id].time
                 previous_converters = list(self.plateau_converters([cv for cv in self.converters if cv.time < next_converter_time]))
-                plateau_value = self.pig_iron_hourly_production*(next_converter_time - tipping_time).total_seconds()/3600
-                yield VirtualPlateau(
-                    time=tipping_time,
-                    plateau_value=round(plateau_value, 3),
-                    available_converters=previous_converters,
-                    hmr_target=round(plateau_value / self.k, 3)
-                )
+                plateau_value = self.pig_iron_hourly_production*(
+                    next_converter_time -
+                    (
+                        tipping_time.replace(second=0) if tipping_time.second > 30
+                        else tipping_time.replace(second=0) + timedelta(minutes=1)
+                    )
+                ).total_seconds()/3600
+
+                plateau_value = self.pig_iron_hourly_production*(
+                    next_converter_time - tipping_time
+                ).total_seconds()/3600
+                if plateau_value > 0:
+                    yield VirtualPlateau(
+                        time=tipping_time,
+                        plateau_value=plateau_value,
+                        available_converters=previous_converters,
+                        hmr_target=plateau_value / self.k
+                    )
 
         # for spill_index, spill_event in enumerate(self.spill_events):
         #
@@ -391,7 +407,7 @@ class PigIronBalance:
 
         # Add end of simulation
         self.finish_balance()
-        self.calculate_total_cost()
+        #self.calculate_total_cost()
         self.pig_iron_balance_map = {b.time:b.value for b in self.pig_iron_balance}
         self.convert_pig_iron_balance_to_pu()
         return self.pig_iron_balance
@@ -426,44 +442,46 @@ class PigIronBalance:
         n_jobs = len(self.converters)
         total_steel = n_jobs * self.k * 4300
         total_pig_iron_min_hmr = n_jobs * self.k * self.min_hmr * 3400
-        total_scrap_min_hmr = n_jobs * self.k * (1 - self.min_hmr) - 3.5
-        spill_steel_loss = len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * (4300 - 360)
-        steel_increase = self.k * sum(cv.hmr - self.min_hmr for cv in self.converters) * (4300 - 3600)
-        scrap_decrease = sum(
-            (self.k * (1 - self.min_hmr) - 3.5) - (self.k * (1 - cv.hmr) - 3.5) for cv in self.converters) * 360
+        # total_pig_iron_min_hmr = sum(cv.hmr for cv in self.converters) * self.k * 3400
+        def pi_scrap(self, hmr):
+            return max(0, self.k * (1-hmr) - 3.5)
+        def delta_pi(self, hmr):
+            return pi_scrap(self, self.min_hmr) - pi_scrap(self, hmr)
+
+        total_scrap_min_hmr = (n_jobs * pi_scrap(self, hmr=self.min_hmr))*360
+        # total_scrap_min_hmr = (n_jobs * self.k * (1 - self.min_hmr) - 3.5)*360
+
+        spill_steel_loss = len(self.spill_events) * self.pig_iron_constants.torpedo_car_volume * (4300)
+        steel_increase = self.k * sum(cv.hmr - self.min_hmr for cv in self.converters) * 4300
+        # scrap_decrease = sum(
+        #     (self.k * (1 - self.min_hmr) - 3.5) - (self.k * (1 - cv.hmr) - 3.5) for cv in self.converters) * 360
+        scrap_decrease = sum(delta_pi(self,hmr=cv.hmr) for cv in self.converters)*360
         total_loss = (spill_steel_loss - steel_increase - scrap_decrease)
 
         liquid_profit = (
-                (  # aço total produzido
-                    total_steel
-                ) -
-                (  # custo gusa
-                    total_pig_iron_min_hmr
-                ) -
-                (  # custo sucata
-                    total_scrap_min_hmr
-                ) -
-                (  # prejuízo
-                        (  # aço perdido por basculamento
-                            spill_steel_loss
-                        ) -
-                        (  # aço produzido a mais
-                            steel_increase
-                        ) +
-                        (  # sucata utilizada a menos = sucata no hmr min - sucata no hmr otimo
-                            scrap_decrease
-                        )
-                )
+            total_steel -
+            (
+                total_pig_iron_min_hmr +
+                total_scrap_min_hmr
+            ) -
+            max(0,(
+                spill_steel_loss -
+                steel_increase -
+                scrap_decrease
+            ))
         )
         total_cost = round(pig_iron_cost + scrap_cost)
-        self.total_cost = liquid_profit
+        self.total_cost = max(0,(self.pig_iron_balance[-1].value - self.initial_spill_events))*4300
         return self.total_cost
 
     def optimize_hmr(self):
         self.generate_pig_iron_balance()
+        if not self.optimize:
+            return None
+        self.initial_spill_events = self.pig_iron_balance[-1].value
         initial_cost = self.total_cost
         it = 0
-        liquid_profit_dict = {it:initial_cost}
+        self.liquid_profit_dict = {it:initial_cost}
 
         while self.virtual_plateaus_to_be_optimized:
             it += 1
@@ -481,9 +499,11 @@ class PigIronBalance:
                     virtual_plateau.hmr_target = 0
                     break
             self.generate_pig_iron_balance()
-            liquid_profit_dict[it] = self.total_cost
-
-            # break
+            self.liquid_profit_dict[it+1] = self.total_cost
+        self.total_cost = max(0.0, (self.pig_iron_balance[-1].value - self.initial_spill_events)* 4300.0)
+            # if it == 4:
+            #     break
+        a = 1
         #self.profit = initial_cost - self.total_cost
         print(f'Total profit: {self.profit}')
 

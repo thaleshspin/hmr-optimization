@@ -19,4 +19,5 @@ def pig_iron_balance_model(input_data):
                           pig_iron_hourly_production=pig_iron_hourly_production,
                           max_restrictive=max_restrictive,
                           allow_auto_spill_events=allow_auto_spill_events,
-                          maintenances=maintenances)
+                          maintenances=maintenances,
+                          optimize=input_data.get("optimize_hmr", False))

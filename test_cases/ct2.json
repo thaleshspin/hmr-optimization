@@ -47,6 +47,7 @@
             "cv": "cv_2"
         }
     ],
+    "optimize_hmr": false,
     "pig_iron_hourly_production": 375,
     "max_restrictive": 1500,
     "allow_auto_spill_events": true,

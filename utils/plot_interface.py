@@ -26,10 +26,10 @@ import plotly.graph_objects as go
 def plot_interface(ct_name, pig_iron_balance, debug=True):
     gantt = generate_gantt_chart(pig_iron_balance.initial_conditions.time, pig_iron_balance.converters, pig_iron_balance.maintenances)
     balance = generate_pig_iron_balance_chart(pig_iron_balance, [spill.time for spill in pig_iron_balance.spill_events])
-
+    #profit = plot_profit_per_iteration(pig_iron_balance.liquid_profit_dict)
     pio.write_image(gantt, f"test_cases/images/gantt_{ct_name}.png", format='png', width=800, height=200, scale=3)
     pio.write_image(balance, f"test_cases/images/balance_{ct_name}.png", format='png', width=800, height=400, scale=3)
-
+    #
     save_plot(ct_name, debug)
 
 
@@ -77,14 +77,6 @@ def generate_gantt_chart(initial_time, converters: list[Converter], maintenances
         data_gantt.append(
             {"Converter": converter_labels[int(converter.cv == 'cv_2')], "Start": converter.time,
              "Finish": converter.end, "HMR (ρ)": converter.hmr})
-    for cv_name, maintenances in maintenances.items():
-        for mnt in maintenances:
-            data_gantt.append({
-                "Converter": converter_labels[int(cv_name == 'CV 2')],
-                "Start": mnt.time,
-                "Finish": mnt.time + timedelta(hours=mnt.duration),
-                "HMR (ρ)": "Maintenance"
-            })
 
     # Convert data to DataFrame
     df_gantt = pd.DataFrame(data_gantt)
@@ -99,6 +91,29 @@ def generate_gantt_chart(initial_time, converters: list[Converter], maintenances
                             color="HMR (ρ)",  # Definir cores com base no valor do HMR
                             color_continuous_scale=colorscale,  # Definir a escala de cores discreta
                             )
+
+    for cv_name, maintenances_list in maintenances.items():
+        for maintenance in maintenances_list:
+            start_time = maintenance.time
+            finish_time = start_time + timedelta(hours=maintenance.duration)
+            duration = (finish_time - start_time).total_seconds()
+
+            fig_gantt.add_trace(
+                go.Scatter(
+                    name='Manutenção',
+                    x=[start_time, finish_time],
+                    y=[cv_name, cv_name],
+                    mode='lines',
+                    line=dict(color='gray', width=25),
+                    hovertemplate='<b>Maintenance</b><br>' +
+                                  'Start: %{x}<br>' +
+                                  'Finish: %{x}<br>' +
+                                  'Duration: %{text}<extra></extra>',
+                    text='Manutenção',
+                    showlegend=True,
+                )
+            )
+
     # Configure Gantt Chart layout
     fig_gantt.update_layout(
         xaxis_title="Tempo",
@@ -113,11 +128,17 @@ def generate_gantt_chart(initial_time, converters: list[Converter], maintenances
             gridwidth=1,  # Define a largura das linhas de grade
         )
     )
+    no_label = False
+    plot_all_info = True
 
     for i, converter in enumerate(sorted(converters, key=lambda cv: cv.time)):
-        equation = "t<span style='font-size: 8px;'>{:01d}</span>: {:0d}min  ρ<span style='font-size: 8px;'>{:0d}</span>: {:.2f}".format(
-            i + 1, int((converter.time - initial_time).total_seconds() / 60), i + 1, converter.hmr
-        )
+        equation = ''
+        if plot_all_info and not no_label:
+            equation = "t<span style='font-size: 8px;'>{:01d}</span>: {:0d}min  ρ<span style='font-size: 8px;'>{:0d}</span>: {:.2f}".format(
+                i + 1, int((converter.time - initial_time).total_seconds() / 60), i + 1, converter.hmr
+            )
+        elif not plot_all_info and not no_label:
+            equation = round(converter.hmr,2)
         fig_gantt.add_annotation(
             x=converter.time + (converter.end - converter.time) / 2,
             y=converter_labels[int(converter.cv == 'cv_2')],
@@ -155,6 +176,20 @@ def generate_gantt_chart(initial_time, converters: list[Converter], maintenances
 
     # fig_gantt.show()
     return fig_gantt
+def plot_profit_per_iteration(profit_per_it):
+    # Criar o gráfico de barras
+    fig = go.Figure(data=go.Bar(x=list(profit_per_it.keys()), y=list(profit_per_it.values())))
+
+    # Configurar os rótulos e título do gráfico
+    fig.update_layout(
+        xaxis_title='Iterações',
+        yaxis_title='Lucro Líquido (R$)',
+        title='Lucro Líquido por Iteração'
+    )
+
+    # Exibir o gráfico
+    fig.show()
+    return fig
 
 
 def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighted_datetimes: list[datetime]):
@@ -167,9 +202,9 @@ def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighte
 
     # Generate line plot for Pig Iron Balance
     fig_saldo_gusa = go.Figure()
-    total_cost = locale.currency(pig_iron_balance.total_cost, grouping=True, symbol='R$')
-
-    title = f"Saldo de Gusa [pu] - Lucro Líquido: {total_cost}"
+    #total_cost = locale.currency(pig_iron_balance.total_cost, grouping=True, symbol='R$')
+    #if total_cost != 0:
+    title = f"Saldo de Gusa [pu]"
     #title_profit = f"Saldo de Gusa - Custo total: {total_cost} - Lucro : {total_cost}"
     #title = title_no_profit if pig_iron_balance.profit == 0 else title_profit
     # Add line plot for Pig Iron Balance
@@ -199,17 +234,19 @@ def generate_pig_iron_balance_chart(pig_iron_balance: PigIronBalance, highlighte
         )
 
     # Add labels to the points of the blue line
-    fig_saldo_gusa.add_trace(
-        go.Scatter(
-            x=df_saldo_gusa["Tempo"][1:],
-            y=df_saldo_gusa["Saldo de Gusa"][1:],
-            mode="markers+text",
-            text=df_saldo_gusa["Saldo de Gusa"][1:],
-            textposition=[["top right", "bottom left"][i % 2] for i in range(len(df_saldo_gusa[1:]))],
-            marker=dict(color="#687a9e", size=4),
-            showlegend=False,
+    show_state_values = True
+    if show_state_values:
+        fig_saldo_gusa.add_trace(
+            go.Scatter(
+                x=df_saldo_gusa["Tempo"][1:],
+                y=df_saldo_gusa["Saldo de Gusa"][1:],
+                mode="markers+text",
+                text=df_saldo_gusa["Saldo de Gusa"][1:],
+                textposition=[["top right", "bottom left"][i % 2] for i in range(len(df_saldo_gusa[1:]))],
+                marker=dict(color="#687a9e", size=4),
+                showlegend=False,
+            )
         )
-    )
 
     # Configure Pig Iron Balance layout
     fig_saldo_gusa.update_layout(
