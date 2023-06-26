@@ -425,8 +425,8 @@ class PigIronBalance:
                     4300 * self.k * sum(cv.hmr - self.min_hmr for cv in self.converters)
             )
         )
-        if len(self.spill_events):
-            print('Steel Loss')
+        # if len(self.spill_events):
+        #     print('Steel Loss')
         pig_iron_cost = (
                 (
                         self.k * sum([cv.hmr for cv in self.converters])
@@ -479,6 +479,12 @@ class PigIronBalance:
         if not self.optimize:
             return None
         self.initial_spill_events = self.pig_iron_balance[-1].value
+        if len(self.maintenances) > 0:
+            for cv_mnt in self.maintenances.values():
+                for mnt in cv_mnt:
+                    print(f'Mnt: {mnt.time} - Duration: {mnt.duration}')
+        print(f'Basc Inicial: {len(self.spill_events)}')
+        print(f'Last State: {self.pig_iron_balance[-1].value}')
         initial_cost = self.total_cost
         it = 0
         self.liquid_profit_dict = {it:initial_cost}
@@ -505,7 +511,11 @@ class PigIronBalance:
             #     break
         a = 1
         #self.profit = initial_cost - self.total_cost
-        print(f'Total profit: {self.profit}')
+        print(f'Basc Final: {len(self.spill_events)}')
+        print(f'Last State: {self.pig_iron_balance[-1].value}')
+        print(f'Gain State: {self.pig_iron_balance[-1].value-self.initial_spill_events}')
+
+
 
     @property
     def virtual_plateaus_to_be_optimized(self):

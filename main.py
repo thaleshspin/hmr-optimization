@@ -20,13 +20,14 @@ if __name__ == '__main__':
         file_path = os.path.join('test_cases/', filename)
         if os.path.isfile(file_path):
             ct_name = filename.split('/')[0].split('.json')[0]
-            print(ct_name)
-            # if ct_name not in ['ct1', 'ct2.1', 'ct2.2','ct3', 'ct3.1', 'ct4', 'ct4.1']:
+
+            if ct_name not in ['ct1', 'ct2.1', 'ct2.2','ct3', 'ct4', 'ct5', 'ct6', 'ct7', 'ct8']:
 
 
 
-            if ct_name in ['ct2']:
+            # if ct_name in ['ct2']:
             # if ct_name in ['ct1', 'ct2.1', 'ct2.2']:
+                print(ct_name)
                 with open(file_path) as json_file:
                     input_data = json.load(json_file)
 
